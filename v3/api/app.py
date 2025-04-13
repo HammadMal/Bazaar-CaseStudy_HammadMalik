@@ -5,7 +5,7 @@ from flask_jwt_extended import JWTManager
 from flask_cors import CORS
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
-# from flask_session import Session  # Temporarily comment out
+from flask_session import Session  # Temporarily comment out
 
 from config import get_config
 
@@ -14,7 +14,7 @@ db = SQLAlchemy()
 migrate = Migrate()
 jwt = JWTManager()
 limiter = Limiter(key_func=get_remote_address)
-# session = Session()  # Temporarily comment out
+session = Session()  # Temporarily comment out
 
 def create_app():
     """Application factory function."""
@@ -26,7 +26,7 @@ def create_app():
     migrate.init_app(app, db)
     jwt.init_app(app)
     limiter.init_app(app)
-    # session.init_app(app)  # Temporarily comment out
+    session.init_app(app)  # Temporarily comment out
 
     @jwt.user_identity_loader
     def user_identity_lookup(identity):

@@ -1,5 +1,5 @@
 import os
-# import redis  # Temporarily comment out
+import redis  # Temporarily comment out
 from datetime import timedelta
 
 class Config:
@@ -14,6 +14,14 @@ class Config:
     RATELIMIT_STORAGE_URL = os.environ.get('REDIS_URL', 'redis://redis:6379/0')
     RATELIMIT_STRATEGY = 'fixed-window'
     
+# Session configuration for Redis
+    SESSION_TYPE = 'redis'
+    SESSION_REDIS = redis.from_url(os.environ.get('REDIS_URL', 'redis://redis:6379/0'))
+    SESSION_PERMANENT = True
+    SESSION_USE_SIGNER = True
+    PERMANENT_SESSION_LIFETIME = timedelta(hours=24)
+
+
 
 class DevelopmentConfig(Config):
     """Development configuration."""
