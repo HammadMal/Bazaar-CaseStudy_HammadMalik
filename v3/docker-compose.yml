@@ -1,0 +1,86 @@
+version: '3.8'
+
+services:
+  nginx:
+    image: nginx:alpine
+    container_name: bazaar-nginx
+    restart: always
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - api
+    networks:
+      - bazaar-network
+
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    deploy:
+      replicas: 3  # Start with 3 instances
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+    environment:
+      - DATABASE_URL=postgresql://bazaar:${POSTGRES_PASSWORD}@db:5432/bazaar_inventory
+      - SECRET_KEY=${SECRET_KEY}
+      - FLASK_ENV=production
+      - REDIS_URL=redis://redis:6379/0
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
+    depends_on:
+      - db
+      - redis
+    networks:
+      - bazaar-network
+
+  db:
+    image: postgres:14
+    container_name: bazaar-db-primary
+    restart: always
+    environment:
+      - POSTGRES_USER=bazaar
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=bazaar_inventory
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - bazaar-network
+
+  db_replica:
+    image: postgres:14
+    container_name: bazaar-db-replica
+    restart: always
+    command: >
+      postgres
+      -c hot_standby=on
+    environment:
+      - POSTGRES_USER=bazaar
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=bazaar_inventory
+    volumes:
+      - postgres_replica_data:/var/lib/postgresql/data
+    depends_on:
+      - db
+    networks:
+      - bazaar-network
+
+  redis:
+    image: redis:alpine
+    container_name: bazaar-redis
+    restart: always
+    volumes:
+      - redis_data:/data
+    networks:
+      - bazaar-network
+
+networks:
+  bazaar-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  postgres_replica_data:
+  redis_data:
