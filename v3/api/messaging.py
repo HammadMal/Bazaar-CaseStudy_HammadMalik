@@ -115,13 +115,14 @@ class MessageQueue:
         }
         return self.publish_message(self.INVENTORY_OPERATIONS_QUEUE, message)
     
-    def publish_report_request(self, report_type, parameters):
+    def publish_report_request(self, report_type, message_data):
         """Publish a report generation request to the queue."""
-        message = {
-            'report_type': report_type,
-            'parameters': parameters
-        }
-        return self.publish_message(self.REPORT_GENERATION_QUEUE, message)
+        # Ensure report_type is in the message data
+        if isinstance(message_data, dict):
+            message_data['report_type'] = report_type
+        
+        # Send the message
+        return self.publish_message(self.REPORT_GENERATION_QUEUE, message_data)
     
     def publish_notification(self, notification_type, recipient, content):
         """Publish a notification to the queue."""

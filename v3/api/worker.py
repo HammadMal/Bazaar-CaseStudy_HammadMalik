@@ -8,8 +8,12 @@ import pika
 from pika.exceptions import AMQPConnectionError
 from datetime import datetime
 import traceback
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, Column, String, Text, Integer, DateTime, ForeignKey
 from sqlalchemy.orm import sessionmaker, scoped_session
+from sqlalchemy.ext.declarative import declarative_base
+
+
+
 
 # Configure logging
 logging.basicConfig(
@@ -33,23 +37,21 @@ NOTIFICATIONS_QUEUE = 'notifications'
 engine = create_engine(DATABASE_URL)
 Session = scoped_session(sessionmaker(bind=engine))
 
-# Create a declarative base separate from the Flask app
-from sqlalchemy.ext.declarative import declarative_base
 Base = declarative_base()
+
 
 # Define minimal models needed for the worker
 # This avoids circular import issues
 class Report(Base):
     __tablename__ = 'reports'
     
-    from sqlalchemy import Column, String, Text, Integer, DateTime, ForeignKey
     
     id = Column(String(36), primary_key=True)
     report_type = Column(String(50), nullable=False)
     parameters = Column(Text)
     status = Column(String(20), default='queued')
     result = Column(Text)
-    user_id = Column(Integer, ForeignKey('users.id'))
+    user_id = Column(Integer)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     completed_at = Column(DateTime)
@@ -184,6 +186,14 @@ def process_report_request(ch, method, properties, body):
         parameters = message.get('parameters', {})
         user_id = message.get('user_id')
         
+        if not report_id:
+            logger.error("No report_id in message")
+            ch.basic_ack(delivery_tag=method.delivery_tag)
+            return
+            
+        # Log more details for debugging
+        logger.info(f"Looking for report with ID: {report_id}")
+        
         # Create database session
         session = Session()
         report = None
@@ -193,8 +203,9 @@ def process_report_request(ch, method, properties, body):
             report = session.query(Report).filter_by(id=report_id).first()
             
             if not report:
-                logger.error(f"Report {report_id} not found")
-                ch.basic_ack(delivery_tag=method.delivery_tag)
+                logger.error(f"Report {report_id} not found in database")
+                # Rejecting the message so it will be processed again
+                ch.basic_nack(delivery_tag=method.delivery_tag, requeue=True)
                 return
             
             # Update report status to processing
@@ -247,7 +258,7 @@ def process_report_request(ch, method, properties, body):
             
             logger.info(f"Successfully generated report {report_id}")
             
-            # Send mock notification (actual implementation would use a proper notification service)
+            # Send notification (actual implementation would use a proper notification service)
             logger.info(f"Notification sent: Report {report_id} completed for user {user_id}")
             
         except Exception as e:

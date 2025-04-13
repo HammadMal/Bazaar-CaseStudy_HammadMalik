@@ -240,11 +240,13 @@ def async_inventory_summary():
     report.set_parameters(data)
     
     db.session.add(report)
+    # Commit immediately to ensure record is in the database
     db.session.commit()
     
     # Prepare message data
     message_data = {
         'report_id': report_id,
+        'report_type': 'inventory_summary',  # Add report_type to message
         'parameters': data,
         'user_id': user_id
     }
@@ -266,6 +268,8 @@ def async_inventory_summary():
         'estimated_completion_time': '30-60 seconds'
     }), 202
 
+
+    
 @reports_bp.route('/product-performance', methods=['GET'])
 @jwt_required()
 @admin_required

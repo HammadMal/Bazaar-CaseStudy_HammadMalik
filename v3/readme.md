@@ -276,6 +276,112 @@ docker-compose up -d --scale api=5 --scale worker=3
 
 Access the RabbitMQ management console at `http://localhost:15672` to monitor queues, messages, and connections.
 
+
+### Asynchronous Reports
+
+For more complex reports that may take longer to generate, Bazaar provides asynchronous report generation through the message queue system:
+
+
+#### Asynchronous Report Workflow:
+
+1. Request a report generation through the async endpoint
+2. Receive a report ID in the response
+3. Check the report status using `GET /api/v3/reports/status/{report_id}`
+4. When status shows "completed", retrieve the report with `GET /api/v3/reports/result/{report_id}`
+
+#### Example:
+
+Request an inventory summary report:
+
+
+POST /api/v3/reports/inventory-summary/async
+
+
+Enter the Authorization and Bearer Token in postman 
+
+Body
+```
+{}
+```
+
+### Response : 
+
+
+
+{
+    "estimated_completion_time": "30-60 seconds",
+    "message": "Report generation queued successfully",
+    "report_id": "3cabb60d-35fe-495c-8570-f9f69b9e8e35",
+    "status": "queued"
+}
+
+Check report status:
+
+GET /api/v3/reports/status/3cabb60d-35fe-495c-8570-f9f69b9e8e35
+
+
+
+{
+    "completed_at": "2025-04-13T19:31:15.539623",
+    "created_at": "2025-04-13T19:31:15.510947",
+    "report_id": "3cabb60d-35fe-495c-8570-f9f69b9e8e35",
+    "report_type": "inventory_summary",
+    "status": "completed",
+    "updated_at": "2025-04-13T19:31:15.543102"
+}
+
+
+
+Check report result: 
+
+http://localhost/api/v3/reports/result/3cabb60d-35fe-495c-8570-f9f69b9e8e35
+
+Enter the Authorization and Bearer Token in postman 
+
+{
+    "completed_at": "2025-04-13T19:31:15.539623",
+    "created_at": "2025-04-13T19:31:15.510947",
+    "report_id": "3cabb60d-35fe-495c-8570-f9f69b9e8e35",
+    "report_type": "inventory_summary",
+    "result": {
+        "summary": {
+            "total_inventory_value": 25000.0,
+            "total_products": 100,
+            "total_stores": 5
+        },
+        "top_categories": [
+            {
+                "category": "Electronics",
+                "total_quantity": 500,
+                "total_value": 10000.0
+            },
+            {
+                "category": "Clothing",
+                "total_quantity": 750,
+                "total_value": 7500.0
+            }
+        ],
+        "top_stores": [
+            {
+                "id": 1,
+                "name": "Main Store",
+                "total_quantity": 1200,
+                "total_value": 12000.0
+            },
+            {
+                "id": 2,
+                "name": "Downtown",
+                "total_quantity": 800,
+                "total_value": 8000.0
+            }
+        ]
+    },
+    "status": "completed"
+}
+
+
+
+
 ## Production Considerations
 
 This project is licensed under the MIT License - see the LICENSE file for details.
