@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Bazaar Inventory</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+</head>
+<body class="bg-light">
+
+
+  
+<div class="container mt-4">
+  <div class="d-flex align-items-center justify-content-between mb-4">
+    <div class="d-flex align-items-center">
+      <img src="{{ url_for('static', filename='images.png') }}" alt="Logo" height="50" class="me-3">
+      <h1 class="mb-0">📦 Bazaar Inventory Dashboard</h1>
+    </div>
+    <a href="/add" class="btn btn-primary">➕ Add New Product</a>
+  </div>
+  
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      {% for category, message in messages %}
+        <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+          {{ message }}
+          <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+      {% endfor %}
+    {% endif %}
+  {% endwith %}
+
+  <!-- <a href="/add" class="btn btn-primary mb-3">➕ Add New Product</a> -->
+
+  <table class="table table-bordered table-striped align-middle">
+    <thead class="table-dark">
+      <tr>
+        <th>SKU</th>
+        <th>Name</th>
+        <th>Category</th>
+        <th>Unit</th>
+        <th>Quantity</th>
+        <th colspan="3" class="text-center">Inventory Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for p in products %}
+      <tr>
+        <td>{{ p.sku }}</td>
+        <td>{{ p.name }}</td>
+        <td><span class="badge bg-info text-dark">{{ p.category }}</span></td>
+        <td>{{ p.unit }}</td>
+        <td><strong>{{ p.quantity }}</strong></td>
+
+        <td>
+          <strong class="text-success">📥 Stock In</strong>
+          <form action="/stock/{{ p.id }}" method="POST" class="d-flex mt-1">
+            <input type="number" name="quantity" class="form-control form-control-sm me-1" placeholder="e.g. 10" required>
+            <input type="text" name="reference_id" class="form-control form-control-sm me-1" placeholder="Ref # or PO ID">
+            <input type="text" name="notes" class="form-control form-control-sm me-1" placeholder="Any note">
+            <button type="submit" class="btn btn-sm btn-success">Add</button>
+          </form>
+        </td>
+
+        <td>
+          <strong class="text-warning">💸 Record Sale</strong>
+          <form action="/sale/{{ p.id }}" method="POST" class="d-flex mt-1">
+            <input type="number" name="quantity" class="form-control form-control-sm me-1" placeholder="e.g. 2" required>
+            <input type="text" name="reference_id" class="form-control form-control-sm me-1" placeholder="Invoice #">
+            <input type="text" name="notes" class="form-control form-control-sm me-1" placeholder="Sold to...">
+            <button type="submit" class="btn btn-sm btn-warning">Sell</button>
+          </form>
+        </td>
+
+        <td>
+          <strong class="text-danger">🗑️ Remove</strong>
+          <form action="/remove/{{ p.id }}" method="POST" class="d-flex mt-1">
+            <input type="number" name="quantity" class="form-control form-control-sm me-1" placeholder="e.g. 1" required>
+            <input type="text" name="notes" class="form-control form-control-sm me-1" placeholder="Expired/Damaged?">
+            <button type="submit" class="btn btn-sm btn-danger">Remove</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

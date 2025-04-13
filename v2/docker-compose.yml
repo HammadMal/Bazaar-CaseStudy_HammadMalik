@@ -1,0 +1,56 @@
+version: '3.8'
+
+services:
+  api:
+    build: ./api
+    container_name: bazaar-api
+    restart: always
+    environment:
+      - DATABASE_URL=postgresql://bazaar:${POSTGRES_PASSWORD}@db:5432/bazaar_inventory
+      - SECRET_KEY=${SECRET_KEY}
+      - FLASK_ENV=production
+      - FLASK_APP=app.py
+    ports:
+      - "5000:5000"
+    depends_on:
+      - db
+      - redis
+    volumes:
+      - ./api:/app
+    networks:
+      - bazaar-network
+
+  db:
+    image: postgres:14
+    container_name: bazaar-db
+    restart: always
+    environment:
+      - POSTGRES_USER=bazaar
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=bazaar_inventory
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-scripts:/docker-entrypoint-initdb.d
+    networks:
+      - bazaar-network
+
+  redis:
+    image: redis:alpine
+    container_name: bazaar-redis
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - bazaar-network
+
+networks:
+  bazaar-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
