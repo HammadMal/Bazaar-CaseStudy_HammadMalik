@@ -5,3 +5,4 @@ from models.product import Product
 from models.inventory import Inventory
 from models.stock_movement import StockMovement
 from models.user import User
+from models.report import Report

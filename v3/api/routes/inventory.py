@@ -10,6 +10,7 @@ from models.stock_movement import StockMovement
 from models.user import User
 from utils.validators import validate_stock_movement
 from utils.auth import store_access_required
+from messaging import message_queue, with_message_queue
 
 inventory_bp = Blueprint('inventory', __name__)
 

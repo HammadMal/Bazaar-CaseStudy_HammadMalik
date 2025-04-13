@@ -1,14 +1,17 @@
 from flask import Blueprint, request, jsonify
-from flask_jwt_extended import jwt_required
+from flask_jwt_extended import jwt_required, get_jwt_identity
 from sqlalchemy import func, desc
 from datetime import datetime, timedelta
+import uuid
 
 from app import db
 from models.inventory import Inventory
 from models.product import Product
 from models.store import Store
 from models.stock_movement import StockMovement
+from models.report import Report
 from utils.auth import admin_required
+from messaging import message_queue, with_message_queue
 
 reports_bp = Blueprint('reports', __name__)
 
@@ -213,6 +216,56 @@ def inventory_summary():
     
     return jsonify(result), 200
 
+@reports_bp.route('/inventory-summary/async', methods=['POST'])
+@jwt_required()
+@with_message_queue
+def async_inventory_summary():
+    """Request asynchronous generation of the inventory summary report."""
+    # Generate a unique report ID
+    report_id = str(uuid.uuid4())
+    
+    # Get user ID
+    user_id = get_jwt_identity()
+    
+    # Create report record in database
+    report = Report(
+        id=report_id,
+        report_type='inventory_summary',
+        status='queued',
+        user_id=user_id
+    )
+    
+    # Get any parameters from request
+    data = request.get_json() or {}
+    report.set_parameters(data)
+    
+    db.session.add(report)
+    db.session.commit()
+    
+    # Prepare message data
+    message_data = {
+        'report_id': report_id,
+        'parameters': data,
+        'user_id': user_id
+    }
+    
+    # Send to message queue
+    success = message_queue.publish_report_request('inventory_summary', message_data)
+    
+    if not success:
+        # Update report status to failed
+        report.status = 'failed'
+        db.session.commit()
+        return jsonify({'error': 'Failed to queue report generation, please try again'}), 500
+    
+    # Return immediate response to client
+    return jsonify({
+        'message': 'Report generation queued successfully',
+        'report_id': report_id,
+        'status': 'queued',
+        'estimated_completion_time': '30-60 seconds'
+    }), 202
+
 @reports_bp.route('/product-performance', methods=['GET'])
 @jwt_required()
 @admin_required
@@ -279,3 +332,99 @@ def product_performance():
     }
     
     return jsonify(result), 200
+
+@reports_bp.route('/product-performance/async', methods=['POST'])
+@jwt_required()
+@admin_required
+@with_message_queue
+def async_product_performance():
+    """Request asynchronous generation of product performance report."""
+    # Generate a unique report ID
+    report_id = str(uuid.uuid4())
+    
+    # Get parameters from request
+    data = request.get_json() or {}
+    
+    # Get user ID
+    user_id = get_jwt_identity()
+    
+    # Create report record in database
+    report = Report(
+        id=report_id,
+        report_type='product_performance',
+        status='queued',
+        user_id=user_id
+    )
+    report.set_parameters(data)
+    
+    db.session.add(report)
+    db.session.commit()
+    
+    # Prepare message data
+    message_data = {
+        'report_id': report_id,
+        'parameters': data,
+        'user_id': user_id
+    }
+    
+    # Send to message queue
+    success = message_queue.publish_report_request('product_performance', message_data)
+    
+    if not success:
+        # Update report status to failed
+        report.status = 'failed'
+        db.session.commit()
+        return jsonify({'error': 'Failed to queue report generation, please try again'}), 500
+    
+    # Return immediate response to client
+    return jsonify({
+        'message': 'Report generation queued successfully',
+        'report_id': report_id,
+        'status': 'queued',
+        'estimated_completion_time': '30-60 seconds'
+    }), 202
+
+@reports_bp.route('/status/<report_id>', methods=['GET'])
+@jwt_required()
+def get_report_status(report_id):
+    """Get the status of a report by ID."""
+    report = Report.query.get_or_404(report_id)
+    
+    return jsonify({
+        'report_id': report.id,
+        'report_type': report.report_type,
+        'status': report.status,
+        'created_at': report.created_at.isoformat(),
+        'updated_at': report.updated_at.isoformat(),
+        'completed_at': report.completed_at.isoformat() if report.completed_at else None
+    }), 200
+
+@reports_bp.route('/result/<report_id>', methods=['GET'])
+@jwt_required()
+def get_report_result(report_id):
+    """Get the result of a completed report by ID."""
+    report = Report.query.get_or_404(report_id)
+    
+    if report.status != 'completed':
+        return jsonify({
+            'report_id': report.id,
+            'status': report.status,
+            'error': 'Report not yet completed'
+        }), 400
+    
+    result = report.get_result()
+    if not result:
+        return jsonify({
+            'report_id': report.id,
+            'status': report.status,
+            'error': 'No result available'
+        }), 404
+    
+    return jsonify({
+        'report_id': report.id,
+        'report_type': report.report_type,
+        'status': report.status,
+        'created_at': report.created_at.isoformat(),
+        'completed_at': report.completed_at.isoformat() if report.completed_at else None,
+        'result': result
+    }), 200

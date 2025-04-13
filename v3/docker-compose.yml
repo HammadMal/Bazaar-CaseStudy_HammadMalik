@@ -30,9 +30,39 @@ services:
       - FLASK_ENV=production
       - REDIS_URL=redis://redis:6379/0
       - JWT_SECRET_KEY=${JWT_SECRET_KEY}
+      - RABBITMQ_URL=amqp://bazaar:${POSTGRES_PASSWORD}@rabbitmq:5672
+      - RABBITMQ_DEFAULT_USER=bazaar
+      - RABBITMQ_DEFAULT_PASS=${POSTGRES_PASSWORD}
     depends_on:
       - db
       - redis
+      - rabbitmq
+    networks:
+      - bazaar-network
+
+  worker:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    command: python worker.py
+    deploy:
+      replicas: 2  # Start with 2 worker instances
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+    environment:
+      - DATABASE_URL=postgresql://bazaar:${POSTGRES_PASSWORD}@db:5432/bazaar_inventory
+      - SECRET_KEY=${SECRET_KEY}
+      - REDIS_URL=redis://redis:6379/0
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
+      - RABBITMQ_URL=amqp://bazaar:${POSTGRES_PASSWORD}@rabbitmq:5672
+      - RABBITMQ_DEFAULT_USER=bazaar
+      - RABBITMQ_DEFAULT_PASS=${POSTGRES_PASSWORD}
+    depends_on:
+      - db
+      - redis
+      - rabbitmq
     networks:
       - bazaar-network
 
@@ -76,6 +106,21 @@ services:
     networks:
       - bazaar-network
 
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: bazaar-rabbitmq
+    restart: always
+    ports:
+      - "5672:5672"   # AMQP port
+      - "15672:15672" # Management UI port
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    environment:
+      - RABBITMQ_DEFAULT_USER=bazaar
+      - RABBITMQ_DEFAULT_PASS=${POSTGRES_PASSWORD}
+    networks:
+      - bazaar-network
+
 networks:
   bazaar-network:
     driver: bridge
@@ -84,3 +129,4 @@ volumes:
   postgres_data:
   postgres_replica_data:
   redis_data:
+  rabbitmq_data:

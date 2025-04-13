@@ -55,17 +55,17 @@ Each time you check the health endpoint, you'll get a different container_id, in
 
 ### 3. Test Inventory System via Nginx
 
-As always you can interact with the Inventory system like you did in v2, for more information please check readme file in that folder. 
+As always you can interact with the Inventory system like you did in v3, for more information please check readme file in that folder. 
 
 If you want to test the previous functionality make sure you :
 Ensure that Postman points to Nginx, not directly to the backend API. Try using:
 
-http://localhost/api/v2/auth/login
+http://localhost/api/v3/auth/login
 
 
 instead of  
 
-http://localhost:5000/api/v2/auth/login
+http://localhost:5000/api/v3/auth/login
 
 
 ### 4. Check Redis for Session Management
@@ -83,6 +83,202 @@ You should get a PONG response if Redis is working correctly.
 
 
 
+# Bazaar Inventory Management System v3 - Phase 2:
+
+# Bazaar Inventory Management System v3
+
+A scalable, containerized inventory management system designed for multi-store retail operations.
+
+## Project Overview
+
+Bazaar is an inventory management system built with a modern microservices architecture. It provides real-time inventory tracking, sales recording, and reporting capabilities across multiple retail locations.
+
+This version (v3) focuses on scalability, resilience, and performance through containerization and message queue integration.
+
+## Architecture
+
+The system is built with a layered architecture:
+
+1. **Client Layer**: Mobile and web applications that connect to the API
+2. **Load Balancer Layer**: Nginx for routing and load distribution
+3. **API Layer**: Flask-based REST API containers
+4. **Message Queue Layer**: RabbitMQ for asynchronous operation processing
+5. **Worker Layer**: Background processing containers
+6. **Data Storage Layer**: PostgreSQL database and Redis cache
+
+## Implementation Phases
+
+The project has been implemented in phases:
+
+### Phase 1: Containerization & Load Balancing
+- Dockerized the application with multi-container setup
+- Configured Nginx as a load balancer
+- Set up PostgreSQL and Redis for data storage
+- Implemented health check endpoints
+
+### Phase 2: Message Queue Integration
+- Added RabbitMQ for asynchronous processing
+- Implemented worker processes to handle queued operations
+- Modified critical inventory operations to use the queue
+- Added support for asynchronous report generation
+- Implemented notification system
+
+### Planned Phase 3: Event-Driven Architecture
+- Further expand to a fully event-driven system
+- Implement real-time data streaming
+- Add an API gateway layer
+
+## Key Features
+
+- **Inventory Management**: Track product quantities across multiple stores
+- **Stock Operations**: Record stock-in, sales, removals, and transfers
+- **User Authentication**: JWT-based authentication with role-based access control
+- **Reporting**: Generate inventory and sales reports
+- **Notifications**: Automated alerts for low stock and report completion
+- **Scalability**: Horizontal scaling of API and worker instances
+- **High Availability**: Load balancing and database replication
+
+## Technology Stack
+
+- **Backend**: Python, Flask, SQLAlchemy
+- **Database**: PostgreSQL, Redis
+- **Message Queue**: RabbitMQ
+- **Containerization**: Docker, Docker Compose
+- **Load Balancing**: Nginx
+- **Authentication**: JWT (JSON Web Tokens)
+
+## Getting Started
+
+### Prerequisites
+
+- Docker and Docker Compose installed
+- Git
+
+### Installation
+```
+
+1. The API will be available at:
+```
+http://localhost/api/v3/
+```
+
+2 RabbitMQ Management UI is available at:
+```
+http://localhost:15672
+
+Use username: Bazaar
+password: bazaar_secure_password
+```
+
+### Initial Login
+
+The system is initialized with an admin user:
+- Username: `admin`
+- Password: `admin`
+
+*Note: Change the admin password in production environments.*
+
+## API Documentation
+
+### Authentication
+
+```
+POST /api/v3/auth/login
+POST /api/v3/auth/register
+POST /api/v3/auth/refresh
+```
+
+### Products
+
+```
+GET /api/v3/products/
+GET /api/v3/products/{id}
+POST /api/v3/products/
+PUT /api/v3/products/{id}
+DELETE /api/v3/products/{id}
+GET /api/v3/products/categories
+```
+
+### Inventory
+
+```
+GET /api/v3/inventory/store/{store_id}
+GET /api/v3/inventory/product/{product_id}
+POST /api/v3/inventory/stock-in
+POST /api/v3/inventory/sale
+POST /api/v3/inventory/remove
+GET /api/v3/inventory/movements
+```
+
+### Stores
+
+```
+GET /api/v3/stores/
+GET /api/v3/stores/{id}
+POST /api/v3/stores/
+PUT /api/v3/stores/{id}
+DELETE /api/v3/stores/{id}
+GET /api/v3/stores/regions
+```
+
+### Reports
+
+```
+GET /api/v3/reports/low-stock
+GET /api/v3/reports/stock-movements
+GET /api/v3/reports/inventory-summary
+POST /api/v3/reports/inventory-summary/async
+GET /api/v3/reports/product-performance
+POST /api/v3/reports/product-performance/async
+GET /api/v3/reports/status/{report_id}
+GET /api/v3/reports/result/{report_id}
+```
+
+## Project Structure
+
+```
+v3/
+├── api/                  # API application code
+│   ├── models/           # SQLAlchemy models
+│   ├── routes/           # API routes/endpoints
+│   ├── services/         # Business logic services
+│   ├── utils/            # Utility functions
+│   ├── app.py            # Flask application factory
+│   ├── config.py         # Configuration
+│   ├── messaging.py      # Message queue integration
+│   ├── worker.py         # Background worker
+│   └── requirements.txt  # Python dependencies
+├── nginx/                # Nginx configuration
+├── init-scripts/         # Initialization scripts
+├── docker-compose.yml    # Docker Compose configuration
+└── .env                  # Environment variables
+```
+
+## Monitoring and Management
+
+### Health Check
+
+You can monitor the health of the API instances with:
+```
+GET /health
+```
+
+This returns the container ID and connection status to the database and message queue.
+
+### Scaling
+
+To scale the number of API or worker instances:
+```bash
+docker-compose up -d --scale api=5 --scale worker=3
+```
+
+### RabbitMQ Management
+
+Access the RabbitMQ management console at `http://localhost:15672` to monitor queues, messages, and connections.
+
+## Production Considerations
+
+This project is licensed under the MIT License - see the LICENSE file for details.
 
 
 

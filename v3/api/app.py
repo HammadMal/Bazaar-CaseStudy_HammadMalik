@@ -16,6 +16,9 @@ jwt = JWTManager()
 limiter = Limiter(key_func=get_remote_address)
 session = Session()  # Temporarily comment out
 
+# Import message queue
+from messaging import message_queue
+
 def create_app():
     """Application factory function."""
     app = Flask(__name__)
@@ -27,6 +30,9 @@ def create_app():
     jwt.init_app(app)
     limiter.init_app(app)
     session.init_app(app)  # Temporarily comment out
+    
+    # Initialize message queue with app
+    message_queue.init_app(app)
 
     @jwt.user_identity_loader
     def user_identity_lookup(identity):
@@ -49,11 +55,11 @@ def create_app():
     from routes.stores import stores_bp
     from routes.reports import reports_bp
     
-    app.register_blueprint(auth_bp, url_prefix='/api/v2/auth')
-    app.register_blueprint(products_bp, url_prefix='/api/v2/products')
-    app.register_blueprint(inventory_bp, url_prefix='/api/v2/inventory')
-    app.register_blueprint(stores_bp, url_prefix='/api/v2/stores')
-    app.register_blueprint(reports_bp, url_prefix='/api/v2/reports')
+    app.register_blueprint(auth_bp, url_prefix='/api/v3/auth')
+    app.register_blueprint(products_bp, url_prefix='/api/v3/products')
+    app.register_blueprint(inventory_bp, url_prefix='/api/v3/inventory')
+    app.register_blueprint(stores_bp, url_prefix='/api/v3/stores')
+    app.register_blueprint(reports_bp, url_prefix='/api/v3/reports')
     
     @app.route('/health')
     def health_check():
@@ -63,9 +69,21 @@ def create_app():
         # Get container ID or hostname
         container_id = os.environ.get('HOSTNAME', socket.gethostname())
         
+        # Check database connection
+        db_status = "connected"
+        try:
+            db.session.execute("SELECT 1")
+        except Exception:
+            db_status = "disconnected"
+        
+        # Check message queue connection
+        mq_status = "connected" if message_queue.connection and message_queue.connection.is_open else "disconnected"
+        
         return {
             'status': 'healthy',
-            'container_id': container_id
+            'container_id': container_id,
+            'database': db_status,
+            'message_queue': mq_status
         }, 200
     
     return app
@@ -85,12 +103,8 @@ with app.app_context():
             db.session.commit()
             print('Admin user created successfully')
     except Exception as e:
-
         print(f"Database initialization note: {str(e)}")
         db.session.rollback()
-
-
-
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', debug=True)

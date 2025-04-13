@@ -14,13 +14,18 @@ class Config:
     RATELIMIT_STORAGE_URL = os.environ.get('REDIS_URL', 'redis://redis:6379/0')
     RATELIMIT_STRATEGY = 'fixed-window'
     
-# Session configuration for Redis
+    # Session configuration for Redis
     SESSION_TYPE = 'redis'
     SESSION_REDIS = redis.from_url(os.environ.get('REDIS_URL', 'redis://redis:6379/0'))
     SESSION_PERMANENT = True
     SESSION_USE_SIGNER = True
     PERMANENT_SESSION_LIFETIME = timedelta(hours=24)
-
+    
+    # RabbitMQ configuration
+    RABBITMQ_URL = os.environ.get('RABBITMQ_URL', 'amqp://guest:guest@localhost:5672')
+    ASYNC_OPERATIONS_ENABLED = os.environ.get('ASYNC_OPERATIONS_ENABLED', 'True').lower() == 'true'
+    QUEUE_RETRY_INTERVAL = int(os.environ.get('QUEUE_RETRY_INTERVAL', 5))  # seconds
+    QUEUE_MAX_RETRIES = int(os.environ.get('QUEUE_MAX_RETRIES', 3))
 
 
 class DevelopmentConfig(Config):
