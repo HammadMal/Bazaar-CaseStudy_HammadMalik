@@ -5,16 +5,17 @@ from flask_jwt_extended import JWTManager
 from flask_cors import CORS
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
-from flask_session import Session  # Temporarily comment out
+from flask_session import Session
 
 from config import get_config
+from database_router import db_manager
 
 # Initialize extensions
 db = SQLAlchemy()
 migrate = Migrate()
 jwt = JWTManager()
 limiter = Limiter(key_func=get_remote_address)
-session = Session()  # Temporarily comment out
+session = Session()
 
 # Import message queue
 from messaging import message_queue
@@ -24,12 +25,22 @@ def create_app():
     app = Flask(__name__)
     app.config.from_object(get_config())
     
-    # Initialize extensions with app
+    # Set up database URLs for read/write separation
+    app.config['WRITE_DATABASE_URL'] = app.config.get('SQLALCHEMY_DATABASE_URI')
+    app.config['READ_DATABASE_URL'] = app.config.get('SQLALCHEMY_READ_REPLICA_URI', 
+                                                     app.config.get('SQLALCHEMY_DATABASE_URI'))
+    
+    # Initialize database manager with separate read/write connections
+    db_manager.init_app(app)
+    
+    # Initialize SQLAlchemy with the write engine for schema management
     db.init_app(app)
     migrate.init_app(app, db)
+    
+    # Initialize other extensions
     jwt.init_app(app)
     limiter.init_app(app)
-    session.init_app(app)  # Temporarily comment out
+    session.init_app(app)
     
     # Initialize message queue with app
     message_queue.init_app(app)
@@ -41,7 +52,6 @@ def create_app():
     CORS(app)
     
     # Import models to ensure they're registered with SQLAlchemy
-    # We import here to avoid circular imports
     from models.store import Store
     from models.product import Product
     from models.inventory import Inventory
@@ -69,12 +79,23 @@ def create_app():
         # Get container ID or hostname
         container_id = os.environ.get('HOSTNAME', socket.gethostname())
         
-        # Check database connection
-        db_status = "connected"
+        # Check write database connection
+        write_db_status = "connected"
         try:
-            db.session.execute("SELECT 1")
+            # Use the write session for this check
+            write_session = db_manager.get_session(for_write=True)
+            write_session.execute("SELECT 1")
         except Exception:
-            db_status = "disconnected"
+            write_db_status = "disconnected"
+        
+        # Check read database connection
+        read_db_status = "connected"
+        try:
+            # Use the read session for this check
+            read_session = db_manager.get_session(for_write=False)
+            read_session.execute("SELECT 1")
+        except Exception:
+            read_db_status = "disconnected"
         
         # Check message queue connection
         mq_status = "connected" if message_queue.connection and message_queue.connection.is_open else "disconnected"
@@ -82,7 +103,8 @@ def create_app():
         return {
             'status': 'healthy',
             'container_id': container_id,
-            'database': db_status,
+            'write_database': write_db_status,
+            'read_database': read_db_status,
             'message_queue': mq_status
         }, 200
     
@@ -94,6 +116,7 @@ app = create_app()
 # Initialize database
 with app.app_context():
     try:
+        # Use write connection for schema creation and admin user setup
         db.create_all()
         from models.user import User
         if not User.query.filter_by(username='admin').first():

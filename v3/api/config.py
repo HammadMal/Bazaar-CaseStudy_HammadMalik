@@ -1,11 +1,17 @@
 import os
-import redis  # Temporarily comment out
+import redis
 from datetime import timedelta
 
 class Config:
     """Base configuration."""
     SECRET_KEY = os.environ.get('SECRET_KEY', 'dev-key-please-change')
+    
+    # Main database URI (primary/write database)
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL', 'sqlite:///bazaar.db')
+    
+    # Read replica database URI (used for read operations)
+    SQLALCHEMY_READ_REPLICA_URI = os.environ.get('READ_DATABASE_URL', None)
+    
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     JWT_SECRET_KEY = os.environ.get('JWT_SECRET_KEY', SECRET_KEY)
     JWT_ACCESS_TOKEN_EXPIRES = timedelta(hours=1)
@@ -26,6 +32,11 @@ class Config:
     ASYNC_OPERATIONS_ENABLED = os.environ.get('ASYNC_OPERATIONS_ENABLED', 'True').lower() == 'true'
     QUEUE_RETRY_INTERVAL = int(os.environ.get('QUEUE_RETRY_INTERVAL', 5))  # seconds
     QUEUE_MAX_RETRIES = int(os.environ.get('QUEUE_MAX_RETRIES', 3))
+    
+    # Query caching configuration
+    CACHE_TYPE = 'redis'
+    CACHE_REDIS_URL = os.environ.get('REDIS_URL', 'redis://redis:6379/0')
+    CACHE_DEFAULT_TIMEOUT = 300  # 5 minutes default cache timeout
 
 
 class DevelopmentConfig(Config):

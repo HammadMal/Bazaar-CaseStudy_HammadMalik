@@ -1,4 +1,5 @@
 from app import db
+from database_router import db_manager
 from models.inventory import Inventory
 from models.product import Product
 from models.store import Store
@@ -8,13 +9,15 @@ class InventoryService:
     @staticmethod
     def get_store_inventory(store_id, page=1, per_page=20, category=None, search=None, low_stock=False):
         """Get inventory for a specific store with filtering."""
-        # Check if store exists
-        store = Store.query.get(store_id)
+        # Check if store exists - use read session for query
+        read_session = db_manager.get_session(for_write=False)
+        store = read_session.query(Store).get(store_id)
         if not store:
+            read_session.close()
             return None, 'Store not found'
         
-        # Base query - join inventory with products
-        query = db.session.query(Inventory, Product)\
+        # Base query - join inventory with products - using read session
+        query = read_session.query(Inventory, Product)\
             .join(Product, Inventory.product_id == Product.id)\
             .filter(Inventory.store_id == store_id)
         
@@ -39,13 +42,15 @@ class InventoryService:
     @staticmethod
     def get_product_inventory(product_id):
         """Get inventory for a specific product across all stores."""
-        # Check if product exists
-        product = Product.query.get(product_id)
+        # Check if product exists - use read session
+        read_session = db_manager.get_session(for_write=False)
+        product = read_session.query(Product).get(product_id)
         if not product:
+            read_session.close()
             return None, 'Product not found'
         
         # Get inventory for this product across all stores
-        inventories = db.session.query(Inventory, Store)\
+        inventories = read_session.query(Inventory, Store)\
             .join(Store, Inventory.store_id == Store.id)\
             .filter(Inventory.product_id == product_id)\
             .all()
@@ -64,52 +69,59 @@ class InventoryService:
         if quantity <= 0:
             return None, 'Quantity must be greater than zero'
         
-        # Get current inventory
-        inventory = Inventory.query.filter_by(
-            store_id=store_id, 
-            product_id=product_id
-        ).first()
+        # Use write session for inventory updates
+        write_session = db_manager.get_session(for_write=True)
         
-        # If inventory doesn't exist, create it
-        if not inventory:
-            inventory = Inventory(
+        try:
+            # Get current inventory
+            inventory = write_session.query(Inventory).filter_by(
+                store_id=store_id, 
+                product_id=product_id
+            ).first()
+            
+            # If inventory doesn't exist, create it
+            if not inventory:
+                inventory = Inventory(
+                    store_id=store_id,
+                    product_id=product_id,
+                    quantity=0,
+                    min_stock_level=min_stock_level or 0,
+                    max_stock_level=max_stock_level
+                )
+                write_session.add(inventory)
+            elif min_stock_level is not None:
+                inventory.min_stock_level = min_stock_level
+            elif max_stock_level is not None:
+                inventory.max_stock_level = max_stock_level
+            
+            # Update inventory
+            prev_quantity = inventory.quantity
+            new_quantity = prev_quantity + quantity
+            inventory.quantity = new_quantity
+            
+            # Record movement
+            movement = StockMovement(
                 store_id=store_id,
                 product_id=product_id,
-                quantity=0,
-                min_stock_level=min_stock_level or 0,
-                max_stock_level=max_stock_level
+                user_id=user_id,
+                movement_type='stock-in',
+                quantity=quantity,
+                previous_quantity=prev_quantity,
+                new_quantity=new_quantity,
+                reference_id=reference_id,
+                notes=notes
             )
-            db.session.add(inventory)
-        elif min_stock_level is not None:
-            inventory.min_stock_level = min_stock_level
-        elif max_stock_level is not None:
-            inventory.max_stock_level = max_stock_level
-        
-        # Update inventory
-        prev_quantity = inventory.quantity
-        new_quantity = prev_quantity + quantity
-        inventory.quantity = new_quantity
-        
-        # Record movement
-        movement = StockMovement(
-            store_id=store_id,
-            product_id=product_id,
-            user_id=user_id,
-            movement_type='stock-in',
-            quantity=quantity,
-            previous_quantity=prev_quantity,
-            new_quantity=new_quantity,
-            reference_id=reference_id,
-            notes=notes
-        )
-        
-        db.session.add(movement)
-        db.session.commit()
-        
-        return {
-            'inventory': inventory,
-            'movement': movement
-        }, None
+            
+            write_session.add(movement)
+            write_session.commit()
+            
+            return {
+                'inventory': inventory,
+                'movement': movement
+            }, None
+        except Exception as e:
+            write_session.rollback()
+            return None, str(e)
 
     @staticmethod
     def stock_out(store_id, product_id, quantity, user_id, movement_type, reference_id=None, notes=None):
@@ -121,51 +133,61 @@ class InventoryService:
         if movement_type not in ['sale', 'removal', 'transfer']:
             return None, 'Invalid movement type'
         
-        # Get current inventory
-        inventory = Inventory.query.filter_by(
-            store_id=store_id, 
-            product_id=product_id
-        ).first()
+        # Use write session for inventory updates
+        write_session = db_manager.get_session(for_write=True)
         
-        if not inventory:
-            return None, 'Inventory not found'
-        
-        # Check if enough stock
-        if inventory.quantity < quantity:
-            return None, f'Not enough stock. Available: {inventory.quantity}, Requested: {quantity}'
-        
-        # Update inventory
-        prev_quantity = inventory.quantity
-        new_quantity = prev_quantity - quantity
-        inventory.quantity = new_quantity
-        
-        # Record movement
-        movement = StockMovement(
-            store_id=store_id,
-            product_id=product_id,
-            user_id=user_id,
-            movement_type=movement_type,
-            quantity=quantity,
-            previous_quantity=prev_quantity,
-            new_quantity=new_quantity,
-            reference_id=reference_id,
-            notes=notes
-        )
-        
-        db.session.add(movement)
-        db.session.commit()
-        
-        return {
-            'inventory': inventory,
-            'movement': movement
-        }, None
+        try:
+            # Get current inventory
+            inventory = write_session.query(Inventory).filter_by(
+                store_id=store_id, 
+                product_id=product_id
+            ).first()
+            
+            if not inventory:
+                return None, 'Inventory not found'
+            
+            # Check if enough stock
+            if inventory.quantity < quantity:
+                return None, f'Not enough stock. Available: {inventory.quantity}, Requested: {quantity}'
+            
+            # Update inventory
+            prev_quantity = inventory.quantity
+            new_quantity = prev_quantity - quantity
+            inventory.quantity = new_quantity
+            
+            # Record movement
+            movement = StockMovement(
+                store_id=store_id,
+                product_id=product_id,
+                user_id=user_id,
+                movement_type=movement_type,
+                quantity=quantity,
+                previous_quantity=prev_quantity,
+                new_quantity=new_quantity,
+                reference_id=reference_id,
+                notes=notes
+            )
+            
+            write_session.add(movement)
+            write_session.commit()
+            
+            return {
+                'inventory': inventory,
+                'movement': movement
+            }, None
+        except Exception as e:
+            write_session.rollback()
+            return None, str(e)
 
     @staticmethod
     def get_movements(page=1, per_page=20, store_id=None, product_id=None, 
                     movement_type=None, start_date=None, end_date=None, user_id=None):
         """Get stock movements with filtering."""
+        # Use read session for queries
+        read_session = db_manager.get_session(for_write=False)
+        
         # Base query
-        query = StockMovement.query
+        query = read_session.query(StockMovement)
         
         # Apply filters
         if store_id:
