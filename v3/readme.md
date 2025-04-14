@@ -1,4 +1,4 @@
-# Bazaar Inventory Management System v3 - Phase 1: Containerization & Load Balancing
+# Bazaar Inventory Management System v3 - Phase 1: Containerization & Load Balancing 
 
 ## Overview
 
@@ -640,3 +640,101 @@ You can monitor rate limiting through Postman by:
    docker exec -it bazaar-redis redis-cli
    keys *rate-limit*
    ```
+
+## Design Decisions
+
+### Microservices Architecture
+* Separated core functionality into independent components (API service, worker service)
+* Used message queues for communication between services
+* Implemented containerization for all components to enable independent scaling
+
+### Database Read/Write Separation
+* Implemented primary/replica architecture to optimize performance
+* Used a session manager to route read and write operations appropriately
+* Added failover capability to maintain availability during replica downtime
+
+### Caching Strategy
+* Implemented Redis-based caching for frequently accessed data
+* Applied cache invalidation patterns to maintain data consistency
+* Created cache management endpoints for administration
+
+### API Rate Limiting
+* Implemented rate limiting based on client IP
+* Used different rate limits for various endpoints based on impact
+* Stored rate limit data in Redis for persistence across API instances
+
+### Load Balancing
+* Incorporated Nginx as a reverse proxy and load balancer
+* Implemented health checks to ensure traffic only goes to healthy instances
+* Used least connections algorithm for optimal request distribution
+
+## Assumptions
+
+### Security Assumptions
+* JWT tokens are sufficient for authentication and authorization
+* Access control by store is required for multi-store environment
+* Admin users need system-wide access to all stores
+
+### Data Assumptions
+* Products have a central catalog shared across all stores
+* Inventory is store-specific
+* Stock movements must be trackable and auditable
+
+### Scaling Assumptions
+* Read operations will significantly outnumber write operations
+* Report generation may be resource-intensive and should be processed asynchronously
+* The system must handle thousands of stores with minimal performance degradation
+
+### User Assumptions
+* Multiple user roles are needed (admin, store manager, store user)
+* Users will primarily access the API through a frontend application
+* API will need to be consumed by both web and mobile clients
+
+## API Design
+
+### RESTful Principles
+* Used consistent resource-based URL structure
+* Implemented proper HTTP methods (GET, POST, PUT, DELETE)
+* Applied consistent response formatting with appropriate status codes
+
+### Versioning Strategy
+* Implemented URL-based versioning (v2 → v3)
+* Maintained backward compatibility where possible
+* Added new endpoints for enhanced functionality
+
+### Authentication and Authorization
+* JWT-based authentication with separate login endpoint
+* Role-based access control for different operations
+* Store-specific access restrictions for non-admin users
+
+### Pagination and Filtering
+* Implemented standard pagination for list endpoints
+* Added filtering capabilities for complex data queries
+* Included metadata in responses for client-side pagination handling
+
+## Evolution Rationale (v2 → v3)
+
+### Scalability Improvements
+* Added horizontal scaling capabilities for all services
+* Implemented database read/write separation for better performance
+* Containerized all components with Docker Compose for easier deployment and scaling
+
+### Reliability Enhancements
+* Added asynchronous processing via message queues
+* Implemented background workers for resource-intensive operations
+* Added health checks and failover mechanisms
+
+### Performance Optimizations
+* Implemented Redis caching for frequently accessed data
+* Added database connection pooling
+* Optimized database queries with proper indexing
+
+### Architecture Modernization
+* Moved from monolithic design to microservices
+* Added event-driven communication between services
+* Implemented infrastructure as code for consistent deployment
+
+### Advanced Features
+* Added comprehensive reporting capabilities
+* Implemented asynchronous report generation
+* Enhanced audit logging for all inventory movements

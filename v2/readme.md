@@ -418,13 +418,99 @@ Use this sequence of API calls to test the system:
    - Try rebuilding: `docker-compose build --no-cache`
    - Check for port conflicts: something might already be using port 5000
 
-## Evolution from Stage 1 to Stage 2
 
-The key improvements in Stage 2 include:
+## Design Decisions
 
-1. **Multi-store Architecture**: From single store to multiple store support
-2. **API-first Design**: Built as an API service rather than a monolithic web app
-3. **Production-ready Database**: PostgreSQL instead of SQLite
-4. **Authentication System**: Added user management and authentication
-5. **Docker Containerization**: For consistent deployment
-6. **Comprehensive Reporting**: Added detailed reporting capabilities
+### Multi-Store Architecture
+- **Central Product Catalog:** All stores share a common product database, enabling consistent product information across the organization
+- **Store-Specific Inventory:** Each store maintains separate inventory records, allowing for location-specific stock management
+- **Event-Based Stock Movement:** All inventory changes are tracked as events with timestamps, users, and references for complete audit trail
+
+### Database Design
+- **Relational Database:** Chose PostgreSQL for ACID compliance, transaction support, and better concurrency handling
+- **Normalization:** Database schema follows proper normalization principles to avoid data redundancy
+- **Foreign Key Constraints:** Enforces data integrity across related tables
+- **Timestamp Tracking:** All entities include created_at and updated_at fields for audit and tracking
+
+### Security Implementation
+- **JWT Authentication:** Secure, stateless authentication using JSON Web Tokens
+- **Role-Based Access Control:** Three primary roles - admin, store_manager, and store_user
+- **Store-Based Permissions:** Users have access only to their assigned stores (except admins)
+- **Password Hashing:** Passwords are securely hashed and never stored in plain text
+- **Rate Limiting:** API endpoints are protected against brute force and DoS attacks
+
+### Containerization Strategy
+- **Docker Isolation:** Each component runs in its own container for better isolation and scalability
+- **Simplified Deployment:** Docker Compose orchestration simplifies setup across environments
+- **Environment Consistency:** Ensures consistent behavior across development and production
+- **Volume Persistence:** Database data persists across container restarts
+
+## Key Assumptions
+- **Internet Connectivity:** Assumes reliable internet connectivity for API communications between stores
+- **Data Volume:** System can handle moderate transaction volumes (up to thousands per day per store)
+- **Concurrency:** Multiple users may access the system simultaneously from different stores
+- **Transaction Size:** Most inventory operations involve reasonable quantities (not millions of items in a single transaction)
+- **Product Uniqueness:** Products are unique across the entire organization with a single central catalog
+- **User Access Patterns:** Store users primarily access their own store's data, while admins need cross-store visibility
+
+## API Design
+
+### Design Principles
+- **RESTful Architecture:** Clear resource-oriented design with appropriate HTTP methods
+- **Versioning:** All endpoints prefixed with `/api/v2/` to allow future version changes
+- **Consistent Response Format:** Standardized success and error response structures
+- **Pagination:** All list endpoints support pagination to handle large data sets
+- **Filtering:** Flexible query parameters for filtering data
+- **Authentication:** JWT-based with refresh token capability
+- **Documentation:** Comprehensive API documentation with examples
+
+### Endpoint Structure
+- **Authentication Endpoints:** `/api/v2/auth/*` for login, registration, token refresh
+- **Product Endpoints:** `/api/v2/products/*` for central catalog management
+- **Inventory Endpoints:** `/api/v2/inventory/*` for stock management
+- **Store Endpoints:** `/api/v2/stores/*` for store management
+- **Reporting Endpoints:** `/api/v2/reports/*` for analytics and insights
+
+### Security Measures
+- **Input Validation:** All request data is validated before processing
+- **Rate Limiting:** Prevents API abuse with per-endpoint limits
+- **Authorization Middleware:** Enforces access control at the route level
+- **Secure Headers:** Properly configured security headers
+
+## Evolution Rationale (v1 → v2)
+
+### Architectural Evolution
+- **From Monolith to API Service:**
+  - v1: Single-application monolith with direct HTML rendering
+  - v2: API-first design with separation of concerns, enabling multiple front-end options
+- **From Single to Multi-Store:**
+  - v1: Limited to a single store's inventory
+  - v2: Supports multiple stores sharing a central product catalog
+- **From Basic to Advanced Security:**
+  - v1: Simple session-based authentication
+  - v2: JWT-based authentication with role-based access control
+- **From File-based to Relational Database:**
+  - v1: SQLite for simplicity
+  - v2: PostgreSQL for scalability and concurrency
+
+### Technical Implementation Changes
+- **Database Migration:**
+  - Enhanced schema with store-related tables
+  - Added foreign key relationships
+  - Improved indexing strategy
+- **Authentication System:**
+  - Implemented JWT token-based authentication
+  - Added token refresh mechanism
+  - Created role-based authorization
+- **API Structure:**
+  - Organized endpoints into logical blueprints
+  - Added versioning support
+  - Implemented consistent response formatting
+- **Containerization:**
+  - Added Docker and Docker Compose
+  - Created separate containers for API, database, and cache
+  - Implemented volume persistence
+- **Performance Enhancements:**
+  - Added Redis for rate limiting and caching
+  - Implemented database connection pooling
+  - Optimized query patterns
