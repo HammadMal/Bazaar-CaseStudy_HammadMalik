@@ -6,6 +6,7 @@ from flask_cors import CORS
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from flask_session import Session
+from flask_caching import Cache  # Add Flask-Caching
 
 from config import get_config
 from database_router import db_manager
@@ -16,6 +17,7 @@ migrate = Migrate()
 jwt = JWTManager()
 limiter = Limiter(key_func=get_remote_address)
 session = Session()
+cache = Cache()  # Initialize cache
 
 # Import message queue
 from messaging import message_queue
@@ -28,7 +30,7 @@ def create_app():
     # Set up database URLs for read/write separation
     app.config['WRITE_DATABASE_URL'] = app.config.get('SQLALCHEMY_DATABASE_URI')
     app.config['READ_DATABASE_URL'] = app.config.get('SQLALCHEMY_READ_REPLICA_URI', 
-                                                     app.config.get('SQLALCHEMY_DATABASE_URI'))
+                                                   app.config.get('SQLALCHEMY_DATABASE_URI'))
     
     # Initialize database manager with separate read/write connections
     db_manager.init_app(app)
@@ -41,6 +43,7 @@ def create_app():
     jwt.init_app(app)
     limiter.init_app(app)
     session.init_app(app)
+    cache.init_app(app)  # Initialize cache with app
     
     # Initialize message queue with app
     message_queue.init_app(app)
@@ -64,12 +67,14 @@ def create_app():
     from routes.inventory import inventory_bp
     from routes.stores import stores_bp
     from routes.reports import reports_bp
+    from routes.cache_routes import cache_bp
     
     app.register_blueprint(auth_bp, url_prefix='/api/v3/auth')
     app.register_blueprint(products_bp, url_prefix='/api/v3/products')
     app.register_blueprint(inventory_bp, url_prefix='/api/v3/inventory')
     app.register_blueprint(stores_bp, url_prefix='/api/v3/stores')
     app.register_blueprint(reports_bp, url_prefix='/api/v3/reports')
+    app.register_blueprint(cache_bp, url_prefix='/api/v3/cache')
     
     @app.route('/health')
     def health_check():
@@ -100,12 +105,22 @@ def create_app():
         # Check message queue connection
         mq_status = "connected" if message_queue.connection and message_queue.connection.is_open else "disconnected"
         
+        # Check cache connection
+        cache_status = "connected"
+        try:
+            cache.set('health_check', 'ok', timeout=10)
+            if cache.get('health_check') != 'ok':
+                cache_status = "disconnected"
+        except Exception:
+            cache_status = "disconnected"
+        
         return {
             'status': 'healthy',
             'container_id': container_id,
             'write_database': write_db_status,
             'read_database': read_db_status,
-            'message_queue': mq_status
+            'message_queue': mq_status,
+            'cache': cache_status
         }, 200
     
     return app

@@ -33,10 +33,11 @@ class Config:
     QUEUE_RETRY_INTERVAL = int(os.environ.get('QUEUE_RETRY_INTERVAL', 5))  # seconds
     QUEUE_MAX_RETRIES = int(os.environ.get('QUEUE_MAX_RETRIES', 3))
     
-    # Query caching configuration
+    # Cache configuration
     CACHE_TYPE = 'redis'
     CACHE_REDIS_URL = os.environ.get('REDIS_URL', 'redis://redis:6379/0')
     CACHE_DEFAULT_TIMEOUT = 300  # 5 minutes default cache timeout
+    CACHE_KEY_PREFIX = 'bazaar_cache:'
 
 
 class DevelopmentConfig(Config):

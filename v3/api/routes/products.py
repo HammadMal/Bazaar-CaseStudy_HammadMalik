@@ -2,7 +2,7 @@ from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from sqlalchemy.exc import IntegrityError
 
-from app import db, limiter
+from app import db, limiter, cache
 from models.product import Product
 from models.user import User
 from utils.validators import validate_product
@@ -10,8 +10,23 @@ from utils.auth import admin_required
 
 products_bp = Blueprint('products', __name__)
 
+# Helper function to generate cache key
+def make_cache_key():
+    """Generate a cache key based on the request parameters."""
+    args = request.args
+    key_dict = {
+        'page': args.get('page', 1),
+        'per_page': args.get('per_page', 20),
+        'category': args.get('category', ''),
+        'search': args.get('search', '')
+    }
+    # Sort keys to ensure consistent cache keys
+    sorted_keys = sorted(key_dict.items())
+    return f"products_list:{str(sorted_keys)}"
+
 @products_bp.route('/', methods=['GET'])
 @jwt_required()
+@cache.cached(timeout=300, key_prefix=make_cache_key)  # Cache for 5 minutes
 def get_products():
     """Get all products with pagination and filtering."""
     # Get query parameters for filtering and pagination
@@ -63,6 +78,7 @@ def get_products():
 
 @products_bp.route('/<int:product_id>', methods=['GET'])
 @jwt_required()
+@cache.cached(timeout=300, key_prefix=lambda: f"product_detail:{request.view_args['product_id']}")
 def get_product(product_id):
     """Get a specific product by ID."""
     product = Product.query.get_or_404(product_id)
@@ -109,6 +125,9 @@ def create_product():
         db.session.add(new_product)
         db.session.commit()
         
+        # Clear cache after creating a new product
+        cache.delete_memoized(get_products)
+        
         return jsonify({
             'message': 'Product created successfully',
             'product_id': new_product.id
@@ -150,6 +169,10 @@ def update_product(product_id):
             
         db.session.commit()
         
+        # Clear specific product cache and products list cache
+        cache.delete(f"product_detail:{product_id}")
+        cache.delete_memoized(get_products)
+        
         return jsonify({
             'message': 'Product updated successfully',
             'product_id': product.id
@@ -170,12 +193,17 @@ def delete_product(product_id):
     product.active = False
     db.session.commit()
     
+    # Clear specific product cache and products list cache
+    cache.delete(f"product_detail:{product_id}")
+    cache.delete_memoized(get_products)
+    
     return jsonify({
         'message': 'Product deactivated successfully'
     }), 200
 
 @products_bp.route('/categories', methods=['GET'])
 @jwt_required()
+@cache.cached(timeout=600)  # Cache categories for 10 minutes
 def get_categories():
     """Get all unique product categories."""
     categories = db.session.query(Product.category)\

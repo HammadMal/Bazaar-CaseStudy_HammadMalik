@@ -85,76 +85,7 @@ You should get a PONG response if Redis is working correctly.
 
 # Bazaar Inventory Management System v3 - Phase 2:
 
-# Bazaar Inventory Management System v3
 
-A scalable, containerized inventory management system designed for multi-store retail operations.
-
-## Project Overview
-
-Bazaar is an inventory management system built with a modern microservices architecture. It provides real-time inventory tracking, sales recording, and reporting capabilities across multiple retail locations.
-
-This version (v3) focuses on scalability, resilience, and performance through containerization and message queue integration.
-
-## Architecture
-
-The system is built with a layered architecture:
-
-1. **Client Layer**: Mobile and web applications that connect to the API
-2. **Load Balancer Layer**: Nginx for routing and load distribution
-3. **API Layer**: Flask-based REST API containers
-4. **Message Queue Layer**: RabbitMQ for asynchronous operation processing
-5. **Worker Layer**: Background processing containers
-6. **Data Storage Layer**: PostgreSQL database and Redis cache
-
-## Implementation Phases
-
-The project has been implemented in phases:
-
-### Phase 1: Containerization & Load Balancing
-- Dockerized the application with multi-container setup
-- Configured Nginx as a load balancer
-- Set up PostgreSQL and Redis for data storage
-- Implemented health check endpoints
-
-### Phase 2: Message Queue Integration
-- Added RabbitMQ for asynchronous processing
-- Implemented worker processes to handle queued operations
-- Modified critical inventory operations to use the queue
-- Added support for asynchronous report generation
-- Implemented notification system
-
-### Planned Phase 3: Event-Driven Architecture
-- Further expand to a fully event-driven system
-- Implement real-time data streaming
-- Add an API gateway layer
-
-## Key Features
-
-- **Inventory Management**: Track product quantities across multiple stores
-- **Stock Operations**: Record stock-in, sales, removals, and transfers
-- **User Authentication**: JWT-based authentication with role-based access control
-- **Reporting**: Generate inventory and sales reports
-- **Notifications**: Automated alerts for low stock and report completion
-- **Scalability**: Horizontal scaling of API and worker instances
-- **High Availability**: Load balancing and database replication
-
-## Technology Stack
-
-- **Backend**: Python, Flask, SQLAlchemy
-- **Database**: PostgreSQL, Redis
-- **Message Queue**: RabbitMQ
-- **Containerization**: Docker, Docker Compose
-- **Load Balancing**: Nginx
-- **Authentication**: JWT (JSON Web Tokens)
-
-## Getting Started
-
-### Prerequisites
-
-- Docker and Docker Compose installed
-- Git
-
-### Installation
 ```
 
 1. The API will be available at:
@@ -389,3 +320,104 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 
 
+### Read Write Seperation Phase 3 
+
+
+
+Fill this later 
+
+
+### Cache 
+
+# Caching Implementation for Bazaar Inventory System Phase 4
+
+## Overview
+
+This document describes the caching implementation for the Bazaar Inventory System, which uses Redis for caching frequently accessed data to improve response times and reduce database load.
+
+## Key Features
+
+- **Redis-based caching**: Uses Redis as the caching backend
+- **Configurable timeouts**: Cache expiration is configurable per endpoint
+- **Automatic cache invalidation**: Cache is automatically cleared when data is modified
+- **Cache management endpoints**: Admin-only endpoints for monitoring and managing the cache
+
+## Cached Endpoints
+
+The following endpoints are cached:
+
+1. **Product Listing**: `GET /api/v3/products/` - Cached for 5 minutes
+2. **Product Details**: `GET /api/v3/products/{id}` - Cached for 5 minutes
+3. **Product Categories**: `GET /api/v3/products/categories` - Cached for 10 minutes
+
+## Cache Invalidation
+
+The cache is automatically invalidated when:
+
+- A new product is created
+- A product is updated
+- A product is deactivated (soft deleted)
+
+## Cache Management Endpoints
+
+The following endpoints are available for cache management (admin only):
+
+1. **Get Cache Statistics**: `GET /api/v3/cache/stats`
+2. **Clear Product Caches**: `POST /api/v3/cache/products/clear`
+3. **Clear All Caches**: `POST /api/v3/cache/clear`
+
+## Example Usage
+
+### Get cache statistics:
+
+```bash
+Postman GET "http://localhost/api/v3/cache/stats" \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
+```
+
+### Clear product caches:
+
+```bash
+Postman POST "http://localhost/api/v3/cache/products/clear" \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
+```
+
+### Clear all caches:
+
+```bash
+Postman POST "http://localhost/api/v3/cache/clear" \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
+```
+
+## Configuration
+
+Cache settings can be adjusted in `config.py`. The default settings are:
+
+```python
+# Cache configuration
+CACHE_TYPE = 'redis'
+CACHE_REDIS_URL = os.environ.get('REDIS_URL', 'redis://redis:6379/0')
+CACHE_DEFAULT_TIMEOUT = 300  # 5 minutes default cache timeout
+CACHE_KEY_PREFIX = 'bazaar_cache:'
+```
+
+## Redis Configuration in Docker
+
+Redis is configured with the following settings in `docker-compose.yml`:
+
+```yaml
+redis:
+  image: redis:alpine
+  container_name: bazaar-redis
+  restart: always
+  command: redis-server --maxmemory 512mb --maxmemory-policy allkeys-lru --appendonly yes
+  volumes:
+    - redis_data:/data
+  networks:
+    - bazaar-network
+```
+
+Key settings:
+- `maxmemory 512mb`: Limits Redis memory usage to 512MB
+- `maxmemory-policy allkeys-lru`: When memory limit is reached, least recently used keys are evicted
+- `appendonly yes`: Enables persistence to disk for data durability
