@@ -64,13 +64,12 @@ This section provides step-by-step instructions to test the API endpoints with s
 
 - **Body**:
 ```json
-  {
-  "username" : "Hammad",
+{
+  "username": "Hammad",
   "email": "email123@yahoo.com",
   "password": "123456"
 }
 ```
-
 
 - **Expected Response**:
 ```json
@@ -79,13 +78,6 @@ This section provides step-by-step instructions to test the API endpoints with s
     "user_id": 1
 }
 ```
-
-
-
-
-
-
-
 
 #### Admin Login (Get Access Token)
 - **URL**: `POST http://localhost:5000/api/v2/auth/login`
@@ -436,16 +428,3 @@ The key improvements in Stage 2 include:
 4. **Authentication System**: Added user management and authentication
 5. **Docker Containerization**: For consistent deployment
 6. **Comprehensive Reporting**: Added detailed reporting capabilities
-7. **Rate Limiting**: Added protection against API abuse
-
-## Future Enhancements (Stage 3)
-
-Future improvements planned for Stage 3:
-
-1. **Microservices Architecture**: Split into smaller, focused services
-2. **Event-driven Updates**: Using message queues for asynchronous processing
-3. **Caching Layer**: Redis caching for high-performance reads
-4. **Horizontal Scaling**: Support for multiple API instances behind a load balancer
-5. **Advanced Analytics**: Business intelligence dashboards
-6. **Enhanced Audit Log**: Comprehensive audit trail for all operations
-7. **Supplier Integration**: Managing supplier relationships and orders
