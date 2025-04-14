@@ -16,7 +16,6 @@ In **Phase 1**, the application has been containerized using Docker and set up f
 
   - **Stateless Application with Redis**: The application has been made stateless by using **Redis** for session storage. This allows session data to be shared across all instances of the API, ensuring that any API instance can handle the request independently of the others.
 
-
 - **Health Check Implementation**: A `/health` endpoint is provided, which returns the health status of the containers along with the container ID.
 
 ## How to Check the Phase 1 Implementation
@@ -55,7 +54,7 @@ Each time you check the health endpoint, you'll get a different container_id, in
 
 ### 3. Test Inventory System via Nginx
 
-As always you can interact with the Inventory system like you did in v3, for more information please check readme file in that folder. 
+As always you can interact with the Inventory system like you did in v2, for more information please check readme file in that folder. 
 
 If you want to test the previous functionality make sure you :
 Ensure that Postman points to Nginx, not directly to the backend API. Try using:
@@ -313,11 +312,6 @@ Enter the Authorization and Bearer Token in postman
 }
 ```
 
-## Production Considerations
-
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-
 # Read-Write Separation (Phase 3)
 
 ## Overview
@@ -463,21 +457,21 @@ The following endpoints are available for cache management (admin only):
 
 ### Get cache statistics:
 
-```bash
+```
 Postman GET "http://localhost/api/v3/cache/stats" \
   -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
 ```
 
 ### Clear product caches:
 
-```bash
+```
 Postman POST "http://localhost/api/v3/cache/products/clear" \
   -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
 ```
 
 ### Clear all caches:
 
-```bash
+```
 Postman POST "http://localhost/api/v3/cache/clear" \
   -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
 ```

@@ -39,7 +39,7 @@ The Stage 2 architecture introduces several improvements over Stage 1:
 1. Clone or download the repository:
 ```bash
 git clone <repository-url>
-cd bazaar-inventory-v2
+cd "foldername"
 ```
 
 2. Start the application with Docker Compose:

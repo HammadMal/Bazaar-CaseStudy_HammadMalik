@@ -47,4 +47,4 @@ Functionality:
 - Record sales
 - Remove damaged or expired items
 
-This version is designed for local use only (Stage 1). No user authentication is included. Future versions may include cloud storage, multi-store support, and advanced analytics.
+This version is designed for local use only (Stage 1). No user authentication is included. Future versions will include proper storage, multi-store support, and advanced analytics.
